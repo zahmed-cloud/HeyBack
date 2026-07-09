@@ -136,18 +136,64 @@
     await log('user_id_fetched', 'fail', 'Not logged into Instagram'); return null;
   }
 
-  async function fetchFollowers(userId) {
+  // Method 1: followers API
+  async function fetchFollowersAPI(userId) {
     const csrf = getCookie('csrftoken') || ''; const all = []; let maxId = null, pages = 0;
     for (let p = 0; p < 10; p++) {
       let url = `/api/v1/friendships/${userId}/followers/?count=100&search_surface=follow_list_page&_t=${Date.now()}`; if (maxId) url += `&max_id=${maxId}`;
       try { const r = await fetch(url, { headers: { 'x-ig-app-id': IG_APP_ID, 'x-requested-with': 'XMLHttpRequest', 'x-csrftoken': csrf }, credentials: 'include' });
-        if (!r.ok) { await log('followers_fetched', 'fail', `page ${p}: HTTP ${r.status}`); break; }
+        if (!r.ok) { await log('followers_fetched', 'fail', `API page ${p}: HTTP ${r.status}`); break; }
         const j = await r.json(); for (const u of (j.users||[])) all.push({ username: u.username, id: String(u.pk||u.pk_id||u.id) });
         pages = p + 1; if (!j.next_max_id || !(j.users||[]).length) break; maxId = j.next_max_id;
-      } catch (e) { await log('followers_fetched', 'fail', `page ${p}: ${e.message}`); break; }
+      } catch (e) { await log('followers_fetched', 'fail', `API page ${p}: ${e.message}`); break; }
       if (p < 9) await sleep(1500);
     }
-    await log('followers_fetched', all.length ? 'ok' : 'fail', `${all.length} followers, ${pages} pages`); return all;
+    return all;
+  }
+
+  // Method 2: notifications/activity feed — catches new followers even when API is stale
+  async function fetchNewFollowersFromActivity() {
+    const newFollowers = [];
+    try {
+      const r = await fetch('/api/v1/news/inbox/?_t=' + Date.now(), {
+        headers: { 'x-ig-app-id': IG_APP_ID, 'x-requested-with': 'XMLHttpRequest', 'x-csrftoken': getCookie('csrftoken') || '' },
+        credentials: 'include'
+      });
+      if (!r.ok) { await log('activity_fetch', 'fail', `HTTP ${r.status}`); return []; }
+      const j = await r.json();
+      const stories = j.old_stories || j.new_stories || [];
+      const allStories = [...(j.new_stories || []), ...(j.old_stories || [])];
+      for (const s of allStories) {
+        // story_type 101 = follow, also check args.text for "started following you"
+        if (s.story_type === 101 || (s.args?.text || '').includes('started following')) {
+          const u = s.args?.profile_id ? { username: s.args.profile_name || '', id: String(s.args.profile_id) } : null;
+          if (u && u.username) newFollowers.push(u);
+          // also check inline_follow_button users
+          if (s.args?.inline_follow?.user_info) {
+            const ui = s.args.inline_follow.user_info;
+            newFollowers.push({ username: ui.username, id: String(ui.id || ui.pk) });
+          }
+        }
+      }
+      if (newFollowers.length) await log('activity_fetch', 'ok', `${newFollowers.length} recent follows from notifications`);
+    } catch (e) { await log('activity_fetch', 'fail', e.message); }
+    return newFollowers;
+  }
+
+  // Combined: merge both sources, dedup by username
+  async function fetchFollowers(userId) {
+    const [apiFollowers, activityFollowers] = await Promise.all([
+      fetchFollowersAPI(userId),
+      fetchNewFollowersFromActivity()
+    ]);
+    // Merge: activity followers first (most recent), then API followers
+    const seen = new Set();
+    const merged = [];
+    for (const f of [...activityFollowers, ...apiFollowers]) {
+      if (!seen.has(f.username)) { seen.add(f.username); merged.push(f); }
+    }
+    await log('followers_fetched', merged.length ? 'ok' : 'fail', `${merged.length} total (${apiFollowers.length} API + ${activityFollowers.length} notifications)`);
+    return merged;
   }
 
   // THE ONE shared send function

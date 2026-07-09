@@ -6,6 +6,9 @@ chrome.runtime.onInstalled.addListener(async () => {
   const existing = await chrome.storage.local.get(null); const merged = { ...DEFAULTS };
   for (const k of Object.keys(DEFAULTS)) if (existing[k] !== undefined) merged[k] = existing[k];
   if (existing.firstRunDone !== undefined && existing.hasCompletedFirstRun === undefined) merged.hasCompletedFirstRun = existing.firstRunDone;
+  // Force clear stuck state on every install/update
+  merged.dmJob = { phase: 'idle' };
+  merged.blockedUntil = null;
   await chrome.storage.local.set(merged); await setupAlarm();
 });
 chrome.runtime.onStartup.addListener(setupAlarm);
