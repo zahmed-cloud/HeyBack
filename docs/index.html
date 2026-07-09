@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HeyBack — auto-DM new Instagram followers</title>
+<meta name="description" content="Free Chrome extension that auto-sends a welcome DM to every new Instagram follower. No signup, no payments, no data collected.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0a0a;
+  --text: #f5f0e8;
+  --muted: #8a8578;
+  --accent: #e05c2a;
+  --purple: #a78bfa;
+  --card: #141414;
+  --border: #1e1e1e;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* SVG noise overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+h1, h2, h3 { font-family: 'Space Grotesk', system-ui, sans-serif; }
+
+.wrap { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+
+/* ══════════════ HERO ══════════════ */
+
+.hero-bg {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-bg::before {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(ellipse at 30% 50%, var(--accent), transparent 50%),
+              radial-gradient(ellipse at 70% 30%, var(--purple), transparent 50%),
+              radial-gradient(ellipse at 50% 80%, #0a0a2f, transparent 60%);
+  opacity: 0.18;
+  animation: mesh 25s ease-in-out infinite alternate;
+  z-index: 0;
+}
+
+@keyframes mesh {
+  0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
+  33%  { transform: translate(5%, -8%) rotate(3deg) scale(1.05); }
+  66%  { transform: translate(-4%, 6%) rotate(-2deg) scale(0.97); }
+  100% { transform: translate(2%, -3%) rotate(1deg) scale(1.02); }
+}
+
+.hero {
+  position: relative;
+  z-index: 1;
+  padding: 110px 0 90px;
+  text-align: center;
+}
+
+/* Floating wordmark */
+.wordmark {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 36px;
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* Staggered word fade-in */
+.hero h1 {
+  font-size: clamp(30px, 5.5vw, 50px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -1.5px;
+  margin-bottom: 22px;
+}
+
+.hero h1 .word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeUp 0.5s ease forwards;
+}
+
+@keyframes fadeUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hero h1 .accent { color: var(--accent); }
+
+.hero .sub {
+  font-size: 16px;
+  color: var(--muted);
+  max-width: 500px;
+  margin: 0 auto 40px;
+  opacity: 0;
+  animation: fadeUp 0.6s 0.8s ease forwards;
+}
+
+/* Glow pulse download button */
+.dl-btn {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 16px 44px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.15s;
+  animation: glow 2.5s ease-in-out infinite, fadeUp 0.5s 1s ease forwards;
+  opacity: 0;
+}
+
+.dl-btn:hover { transform: scale(1.04); }
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(224, 92, 42, 0.3), 0 0 60px rgba(224, 92, 42, 0.1); }
+  50% { box-shadow: 0 0 30px rgba(224, 92, 42, 0.5), 0 0 80px rgba(224, 92, 42, 0.15); }
+}
+
+.dl-note {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 18px;
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+  opacity: 0;
+  animation: fadeUp 0.5s 1.2s ease forwards;
+}
+
+/* ══════════════ SECTIONS ══════════════ */
+
+section { padding: 70px 0; }
+
+.section-title {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 36px;
+  text-align: center;
+}
+
+.section-title span { color: var(--accent); }
+
+/* ── Tiles ── */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.tile {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 30px 24px;
+  transition: transform 0.25s, box-shadow 0.25s;
+  /* fade-in via JS */
+  opacity: 0;
+  transform: translateY(24px) scale(0.97);
+}
+
+.tile.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition: opacity 0.5s, transform 0.5s;
+}
+
+.tile:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+}
+
+.tile-emoji { font-size: 28px; margin-bottom: 12px; display: block; }
+
+.tile h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.tile p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+/* ── Good to know ── */
+
+.info-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.info-list li {
+  font-size: 15px;
+  padding-left: 26px;
+  position: relative;
+  color: var(--text);
+}
+
+.info-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* ── Install ── */
+
+.steps {
+  list-style: none;
+  counter-reset: step;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.steps li {
+  counter-increment: step;
+  font-family: 'Space Grotesk', monospace;
+  font-size: 14px;
+  padding: 16px 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  /* slide-in via JS */
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+.steps li.visible {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 0.4s, transform 0.4s;
+}
+
+.steps li::before {
+  content: counter(step);
+  background: var(--accent);
+  color: #fff;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ── FAQ Accordion ── */
+
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.faq-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.faq-q {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 16px 20px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+
+.faq-q::after {
+  content: '+';
+  font-size: 18px;
+  color: var(--muted);
+  transition: transform 0.3s;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.faq-item.open .faq-q::after {
+  transform: rotate(45deg);
+  color: var(--accent);
+}
+
+.faq-a {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  padding: 0 20px;
+}
+
+.faq-item.open .faq-a {
+  max-height: 120px;
+  padding: 0 20px 16px;
+}
+
+/* ── Footer ── */
+
+footer {
+  padding: 32px 0 40px;
+  text-align: center;
+  border-top: 1px solid var(--border);
+  margin-top: 40px;
+  overflow: hidden;
+}
+
+.marquee {
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.5;
+  margin-bottom: 20px;
+  animation: scroll-marquee 40s linear infinite;
+}
+
+@keyframes scroll-marquee {
+  0%   { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+footer p {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+
+footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+footer a:hover { text-decoration: underline; }
+
+/* ── Responsive ── */
+
+@media (max-width: 480px) {
+  .hero { padding: 70px 0 60px; }
+  .hero h1 { font-size: 28px; }
+  .tiles { grid-template-columns: 1fr; }
+  .dl-btn { padding: 14px 32px; font-size: 15px; }
+  .steps li { font-size: 13px; padding: 14px 16px; }
+  .faq-q { font-size: 13px; padding: 14px 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="hero-bg">
+<div class="wrap">
+  <section class="hero">
+    <div class="wordmark">HB</div>
+    <h1 id="headline"></h1>
+    <p class="sub">chrome extension that says hi so you don't have to. built in a weekend. works when it works.</p>
+    <a href="downloads/heyback-v1.zip" class="dl-btn">download the zip</a>
+    <p class="dl-note">chrome + brave + edge. free forever. sideload only &mdash; google doesn't allow tools like this in their store.</p>
+  </section>
+</div>
+</div>
+
+<div class="wrap">
+
+  <!-- What it does -->
+  <section>
+    <h2 class="section-title">what it <span>actually</span> does</h2>
+    <div class="tiles">
+      <div class="tile">
+        <span class="tile-emoji">&#x1F9E0;</span>
+        <h3>watches your new followers</h3>
+        <p>checks every 20 minutes while your instagram tab is open. no background process eating your cpu.</p>
+      </div>
+      <div class="tile">
+        <span class="tile-emoji">&#x1F44B;</span>
+        <h3>types a welcome DM like a human would</h3>
+        <p>character by character, random delays, picks from your message list. not a bulk api blast.</p>
+      </div>
+      <div class="tile">
+        <span class="tile-emoji">&#x1F501;</span>
+        <h3>moves on. never DMs the same person twice.</h3>
+        <p>marks every follower as "seen" after sending. your existing followers are never touched.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Good to know -->
+  <section>
+    <h2 class="section-title"><span>good</span> to know</h2>
+    <ul class="info-list">
+      <li>instagram doesn't officially support tools like this.</li>
+      <li>we recommend using a secondary account.</li>
+      <li>no data collection. no cloud. runs entirely in your browser.</li>
+      <li>free forever. no upsell.</li>
+      <li>if instagram changes their site, this might break.</li>
+    </ul>
+  </section>
+
+  <!-- Install -->
+  <section>
+    <h2 class="section-title">how to <span>install</span> (2 min)</h2>
+    <ol class="steps">
+      <li>download the zip</li>
+      <li>unzip it anywhere on your computer</li>
+      <li>go to chrome://extensions in your browser</li>
+      <li>flip "developer mode" on (toggle in the top right)</li>
+      <li>click "load unpacked" and pick the unzipped folder</li>
+      <li>click the HB icon in your toolbar</li>
+      <li>add 3 messages, set your daily limit, flip the toggle on</li>
+      <li>leave an instagram tab open. that's it.</li>
+    </ol>
+  </section>
+
+  <!-- FAQ -->
+  <section>
+    <h2 class="section-title"><span>FAQ</span></h2>
+    <div class="faq-list">
+      <div class="faq-item open">
+        <div class="faq-q">"do you take payments?"</div>
+        <div class="faq-a">nope. free. sending you a paypal request would be weird.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">"why is it free?"</div>
+        <div class="faq-a">tools like this have a shelf life. instagram updates their site, things break. charging for something that might not work next month doesn't sit right.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">"will you fix it when instagram breaks it?"</div>
+        <div class="faq-a">no promises. maybe. it's open on github if you wanna fix it yourself.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">"can i use it on my main account?"</div>
+        <div class="faq-a">you can. we'd recommend a secondary account though, just to be safe.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">"who made this?"</div>
+        <div class="faq-a">a solo builder who wanted to see if they could. that's the whole story.</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- Footer -->
+<footer>
+  <div class="marquee">built in a weekend &bull; free forever &bull; not affiliated with meta &bull; built in a weekend &bull; free forever &bull; not affiliated with meta &bull; built in a weekend &bull; free forever &bull; not affiliated with meta</div>
+  <div class="wrap">
+    <p><a href="https://github.com/nicholasheyback/heyback" target="_blank">github</a></p>
+    <p>not affiliated with instagram or meta</p>
+    <p>use at your own risk</p>
+  </div>
+</footer>
+
+<script>
+// ── Headline staggered fade-in ──
+(function() {
+  const words = 'auto-DM every new instagram follower. <accent>free. no bullshit.</accent>'.split(' ');
+  const h1 = document.getElementById('headline');
+  words.forEach((w, i) => {
+    const span = document.createElement('span');
+    span.className = 'word';
+    if (w.startsWith('<accent>')) {
+      span.classList.add('accent');
+      w = w.replace('<accent>', '').replace('</accent>', '');
+    }
+    if (w.includes('</accent>')) {
+      span.classList.add('accent');
+      w = w.replace('</accent>', '');
+    }
+    span.textContent = w + ' ';
+    span.style.animationDelay = (i * 0.08) + 's';
+    h1.appendChild(span);
+  });
+})();
+
+// ── IntersectionObserver: tiles fade-in + steps slide-in ──
+(function() {
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        // stagger children
+        const delay = e.target.dataset.delay || 0;
+        setTimeout(() => e.target.classList.add('visible'), delay);
+        obs.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.15 });
+
+  document.querySelectorAll('.tile').forEach((el, i) => {
+    el.dataset.delay = i * 120;
+    obs.observe(el);
+  });
+
+  document.querySelectorAll('.steps li').forEach((el, i) => {
+    el.dataset.delay = i * 100;
+    obs.observe(el);
+  });
+})();
+
+// ── FAQ Accordion ──
+(function() {
+  document.querySelectorAll('.faq-q').forEach(q => {
+    q.addEventListener('click', () => {
+      const item = q.parentElement;
+      const wasOpen = item.classList.contains('open');
+      // close all
+      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+      // toggle clicked
+      if (!wasOpen) item.classList.add('open');
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

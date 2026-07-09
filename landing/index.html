@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HeyBack — auto-DM new Instagram followers</title>
+<meta name="description" content="Free Chrome extension that auto-sends a welcome DM to every new Instagram follower. No signup, no payments, no data collected.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0a0a;
+  --text: #f5f0e8;
+  --muted: #8a8578;
+  --accent: #e05c2a;
+  --card: #141414;
+  --border: #222;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ── Hero ── */
+
+.hero {
+  padding: 100px 0 80px;
+  text-align: center;
+}
+
+.wordmark {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 32px;
+}
+
+.hero h1 {
+  font-size: clamp(32px, 6vw, 52px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -1.5px;
+  margin-bottom: 20px;
+}
+
+.hero h1 span { color: var(--accent); }
+
+.hero .sub {
+  font-size: 17px;
+  color: var(--muted);
+  max-width: 520px;
+  margin: 0 auto 36px;
+  line-height: 1.5;
+}
+
+.dl-btn {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 16px 40px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: none;
+  animation: pulse-btn 2.5s ease-in-out infinite;
+  transition: transform 0.15s;
+}
+
+.dl-btn:hover { transform: scale(1.03); }
+
+@keyframes pulse-btn {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(224, 92, 42, 0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(224, 92, 42, 0); }
+}
+
+.dl-note {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 16px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.5;
+}
+
+/* ── Sections ── */
+
+section { padding: 60px 0; }
+
+.section-title {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.section-title span { color: var(--accent); }
+
+/* ── Tiles ── */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.tile {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 24px;
+}
+
+.tile h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.tile p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ── Honest ── */
+
+.honest-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.honest-list li {
+  font-size: 15px;
+  padding-left: 24px;
+  position: relative;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.honest-list li::before {
+  content: '~';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* ── Install ── */
+
+.steps {
+  list-style: none;
+  counter-reset: step;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.steps li {
+  counter-increment: step;
+  font-family: 'Space Grotesk', monospace;
+  font-size: 14px;
+  padding: 14px 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.steps li::before {
+  content: counter(step);
+  background: var(--accent);
+  color: #fff;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ── FAQ ── */
+
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.faq-item {}
+
+.faq-q {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.faq-a {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ── Footer ── */
+
+footer {
+  padding: 48px 0;
+  text-align: center;
+  border-top: 1px solid var(--border);
+  margin-top: 40px;
+}
+
+footer p {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+footer a:hover { text-decoration: underline; }
+
+/* ── Responsive ── */
+
+@media (max-width: 480px) {
+  .hero { padding: 60px 0 50px; }
+  .tiles { grid-template-columns: 1fr; }
+  .dl-btn { padding: 14px 32px; font-size: 15px; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="wordmark">HB</div>
+    <h1>auto-DM every new instagram follower. <span>free. no bullshit.</span></h1>
+    <p class="sub">chrome extension that says hi so you don't have to. built in a weekend. works when it works.</p>
+    <a href="downloads/heyback-v1.zip" class="dl-btn">download the zip</a>
+    <p class="dl-note">chrome + brave + edge. free forever. sideload only &mdash; google doesn't allow tools like this in their store.</p>
+  </section>
+
+  <!-- What it does -->
+  <section>
+    <h2 class="section-title">what it <span>actually</span> does</h2>
+    <div class="tiles">
+      <div class="tile">
+        <h3>watches your new followers</h3>
+        <p>checks every 20 minutes while your instagram tab is open. no background process eating your cpu.</p>
+      </div>
+      <div class="tile">
+        <h3>types a welcome DM like a human would</h3>
+        <p>character by character, random delays, picks from your message list. not a bulk api blast.</p>
+      </div>
+      <div class="tile">
+        <h3>moves on. never DMs the same person twice.</h3>
+        <p>marks every follower as "seen" after sending. your existing followers are never touched.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Honest section -->
+  <section>
+    <h2 class="section-title">the <span>honest</span> bit</h2>
+    <ul class="honest-list">
+      <li>instagram doesn't officially allow this. we don't hide it.</li>
+      <li>your account might get action-blocked. use a burner, not your main.</li>
+      <li>we don't take payments. we don't have your data. we can't help you if meta bans you.</li>
+      <li>no updates promised. no support. no roadmap. it works or it doesn't.</li>
+      <li>you set the daily limit. keep it under 15 for a while.</li>
+      <li>if it stops working one day, meta probably changed their site. that's the game.</li>
+    </ul>
+  </section>
+
+  <!-- Install -->
+  <section>
+    <h2 class="section-title">how to <span>install</span> (2 min)</h2>
+    <ol class="steps">
+      <li>download the zip</li>
+      <li>unzip it anywhere on your computer</li>
+      <li>go to chrome://extensions in your browser</li>
+      <li>flip "developer mode" on (toggle in the top right)</li>
+      <li>click "load unpacked" and pick the unzipped folder</li>
+      <li>click the HB icon in your toolbar</li>
+      <li>add 3 messages, set your daily limit, flip the toggle on</li>
+      <li>leave an instagram tab open. that's it.</li>
+    </ol>
+  </section>
+
+  <!-- FAQ -->
+  <section>
+    <h2 class="section-title"><span>FAQ</span></h2>
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q">"will this get my account banned?"</div>
+        <div class="faq-a">maybe. probably eventually. use a burner. keep daily limit low. don't blame us.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">"do you take payments?"</div>
+        <div class="faq-a">nope. free. sending you a paypal request would be weird.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">"why is it free?"</div>
+        <div class="faq-a">cause tools like this die in 6 months when meta updates their site. charging for something with an expiry date feels dirty.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">"will you fix it when instagram breaks it?"</div>
+        <div class="faq-a">no promises. maybe. it's open on github if you wanna fix it yourself.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">"can i use it on my main account?"</div>
+        <div class="faq-a">you can. you shouldn't. use a burner.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">"who made this?"</div>
+        <div class="faq-a">a solo builder who wanted to see if they could. that's the whole story.</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- Footer -->
+<footer>
+  <div class="wrap">
+    <p><a href="https://github.com/nicholasheyback/heyback" target="_blank">github</a></p>
+    <p>not affiliated with instagram or meta</p>
+    <p>use at your own risk</p>
+  </div>
+</footer>
+
+</body>
+</html>

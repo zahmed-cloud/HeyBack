@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><link rel="stylesheet" href="popup.css"><title>HeyBack</title></head>
+<body>
+  <div id="onboarding" style="display:none">
+    <div class="onboard-box">
+      <div class="onboard-title">Welcome to HeyBack</div>
+      <p class="onboard-sub">Auto-DMs new Instagram followers so you never miss saying hi.</p>
+      <div class="onboard-steps">
+        <div class="step"><span class="step-num">1</span><span>Type your welcome messages below (3-5 recommended)</span></div>
+        <div class="step"><span class="step-num">2</span><span>Set your daily limit (start at 10, keep it human)</span></div>
+        <div class="step"><span class="step-num">3</span><span>Flip the toggle ON. HeyBack does the rest.</span></div>
+      </div>
+      <p class="onboard-note">We mark all your current followers as "seen" so only NEW followers get DMs.</p>
+      <button id="onboardBtn">Got it</button>
+    </div>
+  </div>
+
+  <div id="safetyModal" class="modal-overlay" style="display:none">
+    <div class="modal safety-modal">
+      <div class="safety-title">Important</div>
+      <p>Instagram doesn't officially allow automation. HeyBack takes precautions (random delays, daily limits, human-like typing) but there's still risk.</p>
+      <p>We recommend using a secondary account, not your main. Keep daily limit at 10-15 for the first week.</p>
+      <div class="safety-btns">
+        <button class="mbtn orange" id="safetyAccept">I understand, turn it on</button>
+        <button class="mbtn grey" id="safetyCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="main" style="display:none">
+    <div class="header">
+      <span class="logo">HeyBack</span>
+      <div class="header-right">
+        <button class="bug-btn" id="bugBtn" title="Debug tools">&#x1f41b;</button>
+        <label class="toggle" title="Turn HeyBack on or off"><input type="checkbox" id="toggle"><span class="slider"></span></label>
+      </div>
+    </div>
+    <div class="status"><span class="dot" id="dot"></span><span id="statusText">Off</span></div>
+    <div class="section">
+      <div class="label">Messages</div>
+      <textarea id="messages" rows="4" placeholder="hey thanks for the follow&#10;yo appreciate it&#10;heyy welcome"></textarea>
+      <span class="char-count" id="charCount">0 messages</span>
+    </div>
+    <div class="section">
+      <div class="label">Daily limit</div>
+      <div class="sublabel" title="Max DMs per day. Instagram flags accounts sending more than 30/day.">10-30 recommended</div>
+      <input type="number" id="cap" min="1" max="30" value="15" title="Max DMs per day">
+    </div>
+    <div class="section">
+      <div class="label">Sent today</div>
+      <div class="big-number" id="sentToday">0 / 15</div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+    <div class="section">
+      <div class="label">Recent</div>
+      <div id="recent" class="recent-list"><div class="recent-empty">No DMs sent yet</div></div>
+    </div>
+    <div id="advanced" style="display:none"><div class="adv-header" id="advToggle">Advanced</div><div id="advBody" style="display:none"><button class="adv-btn" id="advReset">Reset seen followers</button><button class="adv-btn" id="advDump">Dump state to console</button></div></div>
+    <div class="version">HeyBack v2.1</div>
+  </div>
+
+  <div id="bugModal" class="modal-overlay" style="display:none">
+    <div class="modal">
+      <div class="modal-header"><span class="modal-title">Diagnostics</span><button class="modal-close" id="bugClose">&#x2715;</button></div>
+      <div class="tab-bar">
+        <button class="tab active" data-tab="test">Test</button>
+        <button class="tab" data-tab="diagnose">Diagnose</button>
+        <button class="tab" data-tab="log">Log</button>
+      </div>
+      <div class="modal-body">
+        <div class="tab-content active" id="tab-test">
+          <button class="mbtn orange full" id="simAutoBtn">Simulate full auto flow</button>
+          <button class="mbtn blue full" id="sendSelfBtn">Test send to yourself</button>
+          <div id="verifyResult" class="verify-result" style="display:none"></div>
+        </div>
+        <div class="tab-content" id="tab-diagnose">
+          <div class="modal-btn-row"><button class="mbtn green" id="diagnoseBtn">Auto-diagnose</button><button class="mbtn teal" id="manualTypingBtn">Test typing</button></div>
+          <button class="mbtn grey full" id="copyDiagBtn">Copy diagnosis</button>
+          <div id="diagnosePanel" style="display:none"><div class="modal-section-label">Output</div><div id="diagnoseSteps" class="diag-steps"></div><div id="diagnoseHtml" class="diag-html" style="display:none"></div></div>
+        </div>
+        <div class="tab-content" id="tab-log">
+          <div class="modal-section-label">Queue</div>
+          <div id="queueInfo" class="queue-info"></div>
+          <div class="modal-btn-row"><button class="mbtn dark" id="verifyBtn">Verify last send</button><button class="mbtn orange" id="testNow">Trigger check</button></div>
+          <div class="modal-section-label">Delivery log</div>
+          <div id="deliveryLog" class="delivery-log"></div>
+          <div class="modal-section-label">Pipeline</div>
+          <div id="pipeline" class="pipeline"></div>
+          <div class="modal-section-label">State</div>
+          <div id="stateInfo" class="state-info"></div>
+          <div class="modal-btn-row"><button class="mbtn grey" id="resetTodayBtn">Reset today</button><button class="mbtn grey" id="resetJobBtn">Reset job</button></div>
+          <button class="mbtn danger full" id="resetAllBtn">Reset ALL data</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
