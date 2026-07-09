@@ -24,6 +24,8 @@
     else if (msg.type === 'RESET_ALL') { chrome.storage.local.clear().then(() => respond({ ok: true })); return true; }
     else if (msg.type === 'AUTO_DIAGNOSE') { runDiagnose(); respond({ ok: true }); }
     else if (msg.type === 'SIMULATE_AUTO_FLOW') { simulateAutoFlow(); respond({ ok: true }); }
+    else if (msg.type === 'MANUAL_TEST_TYPING') { runDiagnose(); respond({ ok: true }); }
+    else if (msg.type === 'MANUAL_RUN_CHECK') { if (!isRunning) runCheck(); respond({ ok: true }); }
     return true;
   });
 
