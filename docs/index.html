@@ -99,9 +99,11 @@ nav .dl:hover{background:var(--accent2)}
 .rv-note{font-size:10px;color:var(--mute);opacity:.4;margin-top:16px}
 
 /* INSTALL */
-.steps{list-style:none;counter-reset:s;display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:680px}
-.steps li{counter-increment:s;font-size:15px;font-weight:500;padding:20px 24px;background:var(--card);border:1px solid var(--border);border-radius:14px;display:flex;align-items:center;gap:16px}
-.steps li::before{content:counter(s);font-weight:800;font-size:14px;color:var(--accent);min-width:20px}
+.install-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:680px;margin:0 auto}
+.install-step{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;display:flex;gap:16px;align-items:flex-start}
+.install-num{background:var(--accent);color:#fff;min-width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0}
+.install-step b{font-size:14px;font-weight:700;display:block;margin-bottom:2px}
+.install-step span{font-size:12px;color:var(--mute);line-height:1.4}
 
 /* FAQ */
 .faq{display:flex;flex-direction:column;gap:6px;max-width:680px}
@@ -145,6 +147,7 @@ footer{padding:32px 0;border-top:1px solid var(--border)}
   section{padding:72px 0}
   .footer-inner{flex-direction:column;gap:16px;text-align:center}
   .how{grid-template-columns:1fr 1fr}
+  .install-grid{grid-template-columns:1fr}
   .coffee-card{flex-direction:column;text-align:center;padding:32px 24px}
   .coffee-btn{width:100%;justify-content:center}
 }
@@ -347,22 +350,19 @@ footer{padding:32px 0;border-top:1px solid var(--border)}
 <!-- INSTALL -->
 <section id="install">
   <div class="sh">
-    <div class="ey">get started</div>
-    <h2>up and running in 2 minutes</h2>
-    <p>no account needed. no signup. just download, install, and go.</p>
+    <div class="ey">install</div>
+    <h2>takes about 2 minutes</h2>
   </div>
-  <ol class="steps">
-    <li>download the zip file</li>
-    <li>unzip it anywhere on your computer</li>
-    <li>open chrome://extensions in your browser</li>
-    <li>turn on developer mode (top right toggle)</li>
-    <li>click "load unpacked"</li>
-    <li>select the folder you just unzipped</li>
-    <li>open HeyBack, add your messages, set a daily limit</li>
-    <li>toggle on and keep instagram open. done.</li>
-  </ol>
-  <div style="text-align:center;margin-top:28px">
-    <a href="downloads/heyback-v1.zip" class="btn-p">download HeyBack free</a>
+  <div style="text-align:center;margin-bottom:32px">
+    <a href="downloads/heyback-v1.zip" class="btn-p">download the zip</a>
+  </div>
+  <div class="install-grid">
+    <div class="install-step"><div class="install-num">1</div><div><b>unzip the file</b><br><span>anywhere on your computer, doesn't matter where</span></div></div>
+    <div class="install-step"><div class="install-num">2</div><div><b>open chrome://extensions</b><br><span>paste that into your address bar and hit enter</span></div></div>
+    <div class="install-step"><div class="install-num">3</div><div><b>turn on developer mode</b><br><span>it's the toggle in the top right corner</span></div></div>
+    <div class="install-step"><div class="install-num">4</div><div><b>click "load unpacked"</b><br><span>select the folder you just unzipped</span></div></div>
+    <div class="install-step"><div class="install-num">5</div><div><b>open HeyBack from your toolbar</b><br><span>add your messages, set a daily limit, flip it on</span></div></div>
+    <div class="install-step"><div class="install-num">6</div><div><b>keep instagram open in a tab</b><br><span>that's it. HeyBack handles everything from here.</span></div></div>
   </div>
 </section>
 
