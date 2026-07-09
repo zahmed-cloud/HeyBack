@@ -1,7 +1,7 @@
-// HeyBack v3 — simplified engine
-// Detection: notifications API + followers API
-// Send: navigate to profile → click Message → type → send
-// No search dropdown. No strategy A-G. Just profile → message → done.
+// HeyBack v4 — production engine
+// Auto-starts on alarm. No manual clicks needed.
+// Sends via profile page. Checks existing threads before sending.
+// Navigates home after each send. Handles message requests.
 
 (() => {
   const IG_APP_ID = '936619743392459';
@@ -14,8 +14,6 @@
 
   let isRunning = false;
   let lastMsgIdx = -1;
-
-  // ═══ MESSAGE LISTENER ═══
 
   chrome.runtime.onMessage.addListener((msg, _s, respond) => {
     if (msg.type === 'RUN_CHECK') { if (isRunning) respond({ ok: false }); else { runCheck(); respond({ ok: true }); } }
@@ -49,9 +47,8 @@
     const s = new Set(d.seenFollowers || []);
     const before = s.size;
     s.add(username);
-    const arr = Array.from(s);
-    await chrome.storage.local.set({ seenFollowers: arr });
-    await log('mark_seen', 'ok', `@${username} marked seen (${before} -> ${arr.length})`);
+    await chrome.storage.local.set({ seenFollowers: Array.from(s) });
+    await log('seen', 'ok', `@${username} marked seen (${before} -> ${s.size})`);
   }
 
   async function forceFocus() {
@@ -75,8 +72,6 @@
     return null;
   }
 
-  // ═══ COMPOSER TYPING — execCommand only, no manual events ═══
-
   async function typeInComposer(el, message) {
     el.focus(); await sleep(50);
     document.execCommand('selectAll', false, null);
@@ -86,9 +81,35 @@
     const actual = el.textContent;
     if (actual.length > message.length + 2) {
       el.focus(); document.execCommand('selectAll', false, null); document.execCommand('delete', false, null);
-      throw new Error('DUPLICATE: composer text too long');
+      throw new Error('duplicate in composer');
     }
     await sleep(300);
+  }
+
+  function goHome() {
+    window.location.href = 'https://www.instagram.com/';
+  }
+
+  // ═══ CHECK IF ALREADY MESSAGED ═══
+  // Before sending, check if a DM thread already exists with this person.
+  // If it does, skip them — we only send the FIRST message ever.
+
+  async function alreadyMessaged(username) {
+    try {
+      const r = await fetch(`/api/v1/direct_v2/inbox/?limit=20&_t=${Date.now()}`, {
+        headers: { 'x-ig-app-id': IG_APP_ID, 'x-requested-with': 'XMLHttpRequest', 'x-csrftoken': getCookie('csrftoken') || '' },
+        credentials: 'include'
+      });
+      if (!r.ok) return false; // can't check, assume not messaged
+      const j = await r.json();
+      for (const t of (j.inbox?.threads || [])) {
+        if ((t.users || []).some(u => u.username.toLowerCase() === username.toLowerCase())) {
+          await log('check', 'skip', `@${username} already has a DM thread, skipping`);
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
   }
 
   // ═══ GET USER ID ═══
@@ -106,12 +127,12 @@
     return null;
   }
 
-  // ═══ FETCH NEW FOLLOWERS — two sources merged ═══
+  // ═══ FETCH NEW FOLLOWERS ═══
 
   async function fetchNewFollowerUsernames(userId) {
     const all = new Set();
 
-    // Source 1: notifications/activity feed
+    // Source 1: notifications
     try {
       const r = await fetch('/api/v1/news/inbox/?_t=' + Date.now(), {
         headers: { 'x-ig-app-id': IG_APP_ID, 'x-requested-with': 'XMLHttpRequest', 'x-csrftoken': getCookie('csrftoken') || '' },
@@ -126,11 +147,11 @@
             if (s.args?.inline_follow?.user_info?.username) all.add(s.args.inline_follow.user_info.username);
           }
         }
-        await log('fetch', 'ok', `notifications: ${all.size} recent follows`);
+        await log('fetch', 'ok', `notifications: ${all.size} follows`);
       }
     } catch (e) { await log('fetch', 'fail', `notifications: ${e.message}`); }
 
-    // Source 2: followers API (first page only for speed)
+    // Source 2: followers API page 1
     try {
       const r = await fetch(`/api/v1/friendships/${userId}/followers/?count=50&search_surface=follow_list_page&_t=${Date.now()}`, {
         headers: { 'x-ig-app-id': IG_APP_ID, 'x-requested-with': 'XMLHttpRequest', 'x-csrftoken': getCookie('csrftoken') || '' },
@@ -139,75 +160,51 @@
       if (r.ok) {
         const j = await r.json();
         for (const u of (j.users || [])) all.add(u.username);
-        await log('fetch', 'ok', `API: ${(j.users || []).length} followers (page 1)`);
+        await log('fetch', 'ok', `API: ${(j.users || []).length} followers`);
       }
     } catch (e) { await log('fetch', 'fail', `API: ${e.message}`); }
 
-    await log('fetch', 'ok', `total unique: ${all.size}`);
     return Array.from(all);
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // SEND DM VIA PROFILE PAGE
-  // The simple approach: go to instagram.com/{username}, click the
-  // "Message" button, wait for composer, type message, click send.
-  // No search dropdown. No strategies. Just click Message on profile.
-  // ═══════════════════════════════════════════════════════════════
-
-  async function sendDMviaProfile(username, message) {
-    const clean = strip(username);
-    await log('send', 'ok', `sending to @${clean}`);
-
-    // Step 1: navigate to their profile
-    await log('send', 'ok', 'opening profile...');
-    window.location.href = `https://www.instagram.com/${clean}/`;
-
-    // We need to wait for page load. The content script will be re-injected.
-    // Save state so resumeJob picks it up.
-    return 'navigating';
-  }
+  // ═══ EXECUTE ON PROFILE PAGE ═══
+  // Called when we're on instagram.com/{username}
+  // Clicks Message, types, sends, then goes HOME immediately
 
   async function executeOnProfile(username, message) {
-    await log('send', 'ok', `on profile page for @${username}`);
-
     if (!await forceFocus()) {
       await log('send', 'fail', 'tab not focused');
       return { sent: false, started: false };
     }
 
-    // Wait for profile to load
     await sleep(2000);
-
     if (checkBlock()) return { sent: false, started: false, blocked: true };
 
-    // Step 2: find and click the "Message" button on profile
-    await log('send', 'ok', 'looking for Message button...');
+    // Find Message button on profile
+    await log('send', 'ok', `on @${username}'s profile, looking for Message button...`);
     const msgBtn = await waitFor(() => {
-      // Look for a button/link with text "Message"
       for (const el of document.querySelectorAll('button, [role="button"], a')) {
-        const txt = el.textContent.trim();
-        if (/^message$/i.test(txt) && el.offsetParent) return el;
+        const txt = el.textContent.trim().toLowerCase();
+        if (txt === 'message' && el.offsetParent) return el;
       }
-      // Fallback: aria-label
       const ariaBtn = document.querySelector('[aria-label="Message" i], [aria-label="Send message" i]');
       if (ariaBtn && ariaBtn.offsetParent) return ariaBtn;
       return null;
     }, 8000);
 
     if (!msgBtn) {
-      await log('send', 'fail', 'Message button not found on profile');
-      // Maybe this user has messaging restricted or profile is private
+      await log('send', 'fail', 'no Message button found on profile');
       return { sent: false, started: false };
     }
 
-    await log('send', 'ok', 'clicking Message button');
     click(msgBtn);
+    await log('send', 'ok', 'clicked Message');
     await sleep(3000);
 
     if (checkBlock()) return { sent: false, started: true, blocked: true };
 
-    // Step 3: we should now be in a DM thread. Find the composer.
-    await log('send', 'ok', 'looking for message composer...');
+    // Handle "Send message request" or regular composer
+    // Instagram shows a composer either way, the message just goes to requests
     const composer = await waitFor(() => {
       return document.querySelector('[role="textbox"][contenteditable="true"]')
         || document.querySelector('[aria-label*="essage" i][contenteditable="true"]')
@@ -215,19 +212,26 @@
     }, 10000);
 
     if (!composer) {
-      await log('send', 'fail', 'composer not found after clicking Message');
+      await log('send', 'fail', 'composer not found');
       return { sent: false, started: true };
     }
 
-    await log('send', 'ok', 'composer found, typing message...');
+    // Check if there are already messages in this thread (manual or previous)
+    // If yes, don't send — we only send the FIRST message ever
+    await sleep(500);
+    const existingMessages = document.querySelectorAll('[role="row"]');
+    // More than 1 row usually means there are existing messages (1 row = empty thread placeholder)
+    if (existingMessages.length > 2) {
+      await log('send', 'skip', `@${username} already has messages in thread, skipping`);
+      return { sent: false, started: true, alreadyHasMessages: true };
+    }
 
-    // Step 4: type the message
     try { await typeInComposer(composer, message); }
     catch (e) { await log('send', 'fail', e.message); return { sent: false, started: true }; }
 
     await log('send', 'ok', `typed: "${message.slice(0, 40)}"`);
 
-    // Step 5: find and click Send
+    // Click send
     const sendBtn = await waitFor(() => {
       const byAria = document.querySelector('[role="button"][aria-label="Send" i], button[aria-label="Send" i]');
       if (byAria && byAria.offsetParent) return byAria;
@@ -236,35 +240,24 @@
       return null;
     }, 5000);
 
-    if (sendBtn) {
-      click(sendBtn);
-      await log('send', 'ok', 'clicked send');
-    } else {
-      // Fallback: press Enter
+    if (sendBtn) { click(sendBtn); await log('send', 'ok', 'clicked send'); }
+    else {
       composer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true }));
-      await log('send', 'ok', 'pressed Enter (no send button found)');
+      await log('send', 'ok', 'pressed Enter');
     }
 
-    await sleep(2500);
-
+    await sleep(2000);
     if (checkBlock()) return { sent: false, started: true, blocked: true };
 
-    // Step 6: verify — check if our message appears on the page
-    await sleep(1500);
-    const pageText = document.body.innerText;
-    const verified = pageText.includes(message);
+    // Quick verify
+    const verified = document.body.innerText.includes(message);
     const threadUrl = window.location.href;
+    await log('send', verified ? 'ok' : 'skip', verified ? `delivered to @${username}` : 'sent, could not verify on page');
 
-    // Check for duplicate in bubble
-    const spans = document.querySelectorAll('span');
-    for (let i = spans.length - 1; i >= Math.max(0, spans.length - 10); i--) {
-      if ((spans[i]?.textContent || '').includes(message + message)) {
-        await log('send', 'fail', 'DUPLICATE detected in sent bubble');
-        return { sent: true, verified: false, threadUrl };
-      }
-    }
+    // GO HOME IMMEDIATELY — don't sit in their inbox
+    await sleep(500);
+    goHome();
 
-    await log('send', verified ? 'ok' : 'fail', verified ? `verified: message delivered to @${strip(username)}` : 'sent but could not verify on page');
     return { sent: true, verified, threadUrl };
   }
 
@@ -273,7 +266,7 @@
   async function doVerify() {
     const d = await chrome.storage.local.get('sentLog');
     const sentLog = d.sentLog || [];
-    if (!sentLog.length) return { ok: false, detail: 'No sends recorded' };
+    if (!sentLog.length) return { ok: false, detail: 'No sends yet' };
     const last = sentLog[sentLog.length - 1];
     try {
       const r = await fetch(`/api/v1/direct_v2/inbox/?limit=20&_t=${Date.now()}`, {
@@ -285,7 +278,7 @@
         for (const t of (j.inbox?.threads || [])) {
           if ((t.users || []).some(u => u.username.toLowerCase() === last.username.toLowerCase())) {
             const items = t.items || [];
-            if (!items.length) return { ok: false, detail: `Thread with @${last.username} is empty`, username: last.username };
+            if (!items.length) return { ok: false, detail: `Thread with @${last.username} empty`, username: last.username };
             const txt = items[0].text || '';
             if (txt.includes(last.message) || last.message.includes(txt))
               return { ok: true, detail: `Delivered: "${txt}"`, username: last.username };
@@ -298,64 +291,49 @@
     return { ok: false, detail: 'Could not verify', username: last?.username };
   }
 
-  // ═══ DM JOB STATE MACHINE ═══
-  // Phases:
-  //   idle → nothing
-  //   go_to_profile → need to navigate to instagram.com/{username}
-  //   on_profile → page loaded, execute the send
-  //   waiting → delay between sends
+  // ═══ STATE MACHINE ═══
 
   async function startBatch(usernames, data) {
     const job = {
       queue: usernames.map(u => ({ username: strip(u), message: pickMsg(data.messages) })),
-      index: 0,
-      phase: 'go_to_profile',
-      today: data.sentToday || 0,
-      total: data.sentTotalCount || 0,
+      index: 0, phase: 'go_to_profile',
+      today: data.sentToday || 0, total: data.sentTotalCount || 0,
       cap: Math.min(data.dailyCap || 15, ABS_MAX_DAILY),
-      started: Date.now(),
-      fails: 0
+      started: Date.now(), fails: 0
     };
     await chrome.storage.local.set({ dmJob: job, lastCheckResult: [] });
-    await log('batch', 'ok', `${job.queue.length} to send: [${usernames.join(', ')}]`);
-
-    // Navigate to first profile
-    const first = job.queue[0].username;
-    window.location.href = `https://www.instagram.com/${first}/`;
+    await log('batch', 'ok', `${job.queue.length} to DM: [${usernames.join(', ')}]`);
+    window.location.href = `https://www.instagram.com/${job.queue[0].username}/`;
   }
 
   async function resumeJob() {
     const { dmJob: job } = await chrome.storage.local.get('dmJob');
     if (!job || job.phase === 'idle') return;
-
-    // Stale check
     if (Date.now() - job.started > JOB_STALE_MS) {
-      job.phase = 'idle';
-      await chrome.storage.local.set({ dmJob: job });
-      await log('job', 'fail', 'job timed out');
-      return;
+      job.phase = 'idle'; await chrome.storage.local.set({ dmJob: job });
+      await log('job', 'fail', 'timed out'); return;
     }
 
-    if (job.phase === 'go_to_profile') {
-      const target = job.queue[job.index];
-      if (!target) { await finishJob(job); return; }
-      // Check if we're on the right profile page
+    const target = job.queue[job.index];
+    if (!target) { await finishJob(job); return; }
+
+    if (job.phase === 'go_to_profile' || job.phase === 'on_profile') {
       const path = window.location.pathname.replace(/\/$/, '').toLowerCase();
       const expected = `/${target.username.toLowerCase()}`;
+
       if (path === expected || path.startsWith(expected + '/')) {
-        // We're on the profile page, execute
+        // We're on the right profile
         job.phase = 'on_profile';
         await chrome.storage.local.set({ dmJob: job });
-        await execOnCurrentProfile(job);
+        await runOnProfile(job);
+      } else if (window.location.pathname === '/' || window.location.pathname === '') {
+        // We're on home (after a previous send navigated home)
+        // Go to the next profile
+        window.location.href = `https://www.instagram.com/${target.username}/`;
       } else {
-        // Navigate to the profile
+        // Wrong page, navigate
         window.location.href = `https://www.instagram.com/${target.username}/`;
       }
-      return;
-    }
-
-    if (job.phase === 'on_profile') {
-      await execOnCurrentProfile(job);
       return;
     }
 
@@ -374,58 +352,49 @@
         }, left);
         return;
       }
-      // Delay expired
       job.phase = 'go_to_profile';
       await chrome.storage.local.set({ dmJob: job });
-      const next = job.queue[job.index];
-      if (next) window.location.href = `https://www.instagram.com/${next.username}/`;
-      else await finishJob(job);
-      return;
+      window.location.href = `https://www.instagram.com/${target.username}/`;
     }
   }
 
-  async function execOnCurrentProfile(job) {
+  async function runOnProfile(job) {
     if (job.index >= job.queue.length || job.today >= job.cap) { await finishJob(job); return; }
     if (checkBlock()) {
       await chrome.storage.local.set({ blockedUntil: Date.now() + 86400000 });
-      await log('job', 'fail', 'Instagram rate limit detected');
-      await finishJob(job);
-      return;
+      await finishJob(job); return;
     }
 
     const { username, message } = job.queue[job.index];
-    await log('sending', 'ok', `DM @${username} (${job.index + 1}/${job.queue.length})`);
+    await log('dm', 'ok', `@${username} (${job.index + 1}/${job.queue.length})`);
 
     const result = await executeOnProfile(username, message);
 
     if (result.blocked) {
       await markSeen(username);
       await chrome.storage.local.set({ blockedUntil: Date.now() + 86400000 });
-      await log('result', 'fail', `@${username}: rate limited`);
-      await finishJob(job);
-      return;
+      await log('dm', 'fail', `@${username}: rate limited`);
+      await finishJob(job); return;
     }
 
-    if (result.sent) {
+    if (result.alreadyHasMessages) {
+      // Thread exists, skip but mark seen
       await markSeen(username);
-      job.today++;
-      job.total++;
-      job.fails = 0;
+      await log('dm', 'skip', `@${username}: already has messages, skipped`);
+    } else if (result.sent) {
+      await markSeen(username);
+      job.today++; job.total++; job.fails = 0;
       const cur = await chrome.storage.local.get('sentLog');
       const sentLog = cur.sentLog || [];
       sentLog.push({ username, message, ts: Date.now(), verified: result.verified, threadUrl: result.threadUrl || '', markedSeen: true });
       if (sentLog.length > 100) sentLog.splice(0, sentLog.length - 100);
       await chrome.storage.local.set({ sentLog, sentToday: job.today, sentTotalCount: job.total });
-      await log('result', 'ok', `@${username}: ${result.verified ? 'DELIVERED' : 'sent'}`);
+      await log('dm', 'ok', `@${username}: ${result.verified ? 'DELIVERED' : 'sent'}`);
     } else {
       if (result.started) await markSeen(username);
       job.fails++;
-      await log('result', 'fail', `@${username}: send failed`);
-      if (job.fails >= 3) {
-        await log('job', 'fail', '3 consecutive failures, stopping');
-        await finishJob(job);
-        return;
-      }
+      await log('dm', 'fail', `@${username}: failed`);
+      if (job.fails >= 3) { await log('job', 'fail', '3 fails, stopping'); await finishJob(job); return; }
     }
 
     job.index++;
@@ -434,7 +403,8 @@
       job.waitUntil = Date.now() + delay;
       job.phase = 'waiting';
       await chrome.storage.local.set({ dmJob: job });
-      await log('job', 'ok', `waiting ${Math.round(delay / 1000)}s before next...`);
+      await log('job', 'ok', `waiting ${Math.round(delay / 1000)}s...`);
+      // goHome already happened in executeOnProfile, so we're waiting on the home page
       setTimeout(async () => {
         const fresh = (await chrome.storage.local.get('dmJob')).dmJob;
         if (fresh?.phase === 'waiting') {
@@ -457,7 +427,11 @@
       await markSeen(simulateTarget);
       await chrome.storage.local.set({ simulateTarget: null });
     }
-    await log('done', 'ok', `batch complete: ${job.today} sent today`);
+    await log('done', 'ok', `batch done: ${job.today} sent today`);
+    // Make sure we end up on home page
+    if (!window.location.pathname.startsWith('/direct/') && window.location.pathname !== '/') {
+      goHome();
+    }
   }
 
   // ═══ TEST SEND ═══
@@ -466,94 +440,96 @@
     const u = strip(rawUsername);
     await chrome.storage.local.set({ lastCheckResult: [] });
     await log('test', 'ok', `test send to @${u}`);
-    const data = await chrome.storage.local.get(null);
     const job = {
-      queue: [{ username: u, message }],
-      index: 0,
-      phase: 'go_to_profile',
-      today: 0, total: 0, cap: 99,
-      started: Date.now(), fails: 0, isTest: true
+      queue: [{ username: u, message }], index: 0, phase: 'go_to_profile',
+      today: 0, total: 0, cap: 99, started: Date.now(), fails: 0, isTest: true
     };
     await chrome.storage.local.set({ dmJob: job });
     window.location.href = `https://www.instagram.com/${u}/`;
   }
 
-  // ═══ SIMULATE AUTO FLOW ═══
+  // ═══ SIMULATE ═══
 
   async function simulateAutoFlow() {
     await chrome.storage.local.set({ lastCheckResult: [] });
-    await log('simulate', 'ok', 'starting simulation');
+    await log('sim', 'ok', 'simulating auto flow');
     const data = await chrome.storage.local.get(null);
-    if (!data.messages?.length) { await log('simulate', 'fail', 'no messages set'); return; }
+    if (!data.messages?.length) { await log('sim', 'fail', 'no messages set'); return; }
     const uid = await getUserId();
-    if (!uid) { await log('simulate', 'fail', 'not logged in'); return; }
-
-    const allFollowers = await fetchNewFollowerUsernames(uid);
+    if (!uid) { await log('sim', 'fail', 'not logged in'); return; }
+    const followers = await fetchNewFollowerUsernames(uid);
     const seen = new Set(data.seenFollowers || []);
-    const candidate = allFollowers.find(u => seen.has(u));
-    if (!candidate) { await log('simulate', 'fail', 'no seen follower to test with'); return; }
-
-    await log('simulate', 'ok', `testing with @${candidate}`);
+    const candidate = followers.find(u => seen.has(u));
+    if (!candidate) { await log('sim', 'fail', 'no seen follower to test with'); return; }
     const without = (data.seenFollowers || []).filter(u => u !== candidate);
     await chrome.storage.local.set({ seenFollowers: Array.from(new Set(without)), enabled: true, sentToday: 0, simulateTarget: candidate });
+    await log('sim', 'ok', `testing @${candidate}`);
     await runCheck();
   }
 
-  // ═══ RUN CHECK — the main loop ═══
+  // ═══ RUN CHECK — fully automatic, triggered by alarm ═══
 
   async function runCheck() {
     isRunning = true;
     try {
-      await log('check', 'ok', 'checking for new followers...');
+      await log('check', 'ok', 'auto check started');
       const data = await chrome.storage.local.get(null);
 
-      if (!data.enabled) { await log('check', 'skip', 'HeyBack is off'); return; }
-      if (!data.messages?.length) { await log('check', 'skip', 'no messages set'); return; }
-      if (data.blockedUntil && Date.now() < data.blockedUntil) { await log('check', 'skip', 'paused (rate limit)'); return; }
+      if (!data.enabled) { await log('check', 'skip', 'off'); return; }
+      if (!data.messages?.length) { await log('check', 'skip', 'no messages'); return; }
+      if (data.blockedUntil && Date.now() < data.blockedUntil) { await log('check', 'skip', 'paused'); return; }
       if (data.dmJob?.phase && data.dmJob.phase !== 'idle') {
-        if (Date.now() - (data.dmJob.started || 0) > JOB_STALE_MS) {
-          await chrome.storage.local.set({ dmJob: { phase: 'idle' } });
-        } else { await log('check', 'skip', 'send in progress'); return; }
+        if (Date.now() - (data.dmJob.started || 0) > JOB_STALE_MS) await chrome.storage.local.set({ dmJob: { phase: 'idle' } });
+        else { await log('check', 'skip', 'job running'); return; }
       }
 
       const today = new Date().toISOString().slice(0, 10);
       if (data.lastResetDate !== today) { await chrome.storage.local.set({ sentToday: 0, lastResetDate: today }); data.sentToday = 0; }
       const cap = Math.min(data.dailyCap || 15, ABS_MAX_DAILY);
-      if ((data.sentToday || 0) >= cap) { await log('check', 'skip', `daily limit (${data.sentToday}/${cap})`); return; }
+      if ((data.sentToday || 0) >= cap) { await log('check', 'skip', `limit (${data.sentToday}/${cap})`); return; }
 
       const uid = await getUserId();
       if (!uid) { await log('check', 'fail', 'not logged in'); return; }
 
       const allFollowers = await fetchNewFollowerUsernames(uid);
-      if (!allFollowers.length) { await log('check', 'fail', 'could not fetch followers'); return; }
+      if (!allFollowers.length) { await log('check', 'fail', 'no followers found'); return; }
 
-      // First run: mark everyone as seen
       if (!data.hasCompletedFirstRun) {
-        const all = Array.from(new Set(allFollowers));
-        await chrome.storage.local.set({ seenFollowers: all, hasCompletedFirstRun: true });
-        await log('check', 'ok', `first run: marked ${all.length} as seen`);
+        await chrome.storage.local.set({ seenFollowers: Array.from(new Set(allFollowers)), hasCompletedFirstRun: true });
+        await log('check', 'ok', `first run: ${allFollowers.length} marked seen`);
         return;
       }
 
-      // Find new followers
       const seen = new Set(data.seenFollowers || []);
-      const fresh = allFollowers.filter(u => !seen.has(u));
+      let fresh = allFollowers.filter(u => !seen.has(u));
 
       if (!fresh.length) {
-        await log('check', 'ok', `no new followers (${seen.size} seen, ${allFollowers.length} total)`);
+        await log('check', 'ok', `no new (${seen.size} seen)`);
         return;
       }
 
-      await log('check', 'ok', `${fresh.length} NEW: [${fresh.join(', ')}]`);
+      // Filter out anyone we already have a DM thread with
+      const filtered = [];
+      for (const u of fresh) {
+        if (await alreadyMessaged(u)) {
+          await markSeen(u); // mark seen so we don't check again
+        } else {
+          filtered.push(u);
+        }
+        if (filtered.length >= MAX_BATCH) break;
+      }
 
-      const batch = fresh.slice(0, Math.min(fresh.length, MAX_BATCH, cap - (data.sentToday || 0)));
+      if (!filtered.length) {
+        await log('check', 'ok', 'new followers exist but all already messaged');
+        return;
+      }
+
+      await log('check', 'ok', `${filtered.length} NEW to DM: [${filtered.join(', ')}]`);
+      const batch = filtered.slice(0, Math.min(filtered.length, cap - (data.sentToday || 0)));
       await startBatch(batch, data);
 
-    } catch (e) {
-      await log('check', 'fail', `error: ${e.message}`);
-    } finally {
-      isRunning = false;
-    }
+    } catch (e) { await log('check', 'fail', `error: ${e.message}`); }
+    finally { isRunning = false; }
   }
 
   // ═══ DIAGNOSE ═══
@@ -569,7 +545,7 @@
 
     await step('fetching followers...', 'running');
     const followers = await fetchNewFollowerUsernames(uid);
-    await step(`${followers.length} followers found`, followers.length ? 'ok' : 'fail');
+    await step(`${followers.length} found`, followers.length ? 'ok' : 'fail');
 
     const data = await chrome.storage.local.get(null);
     const seen = new Set(data.seenFollowers || []);
@@ -583,7 +559,7 @@
     await chrome.storage.local.set({ autoDiagnoseResult: res });
   }
 
-  // ═══ ON PAGE LOAD — resume any pending job ═══
+  // ═══ ON PAGE LOAD — resume job or just chill ═══
 
   setTimeout(async () => {
     const { dmJob: job } = await chrome.storage.local.get('dmJob');
