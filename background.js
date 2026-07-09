@@ -16,7 +16,6 @@ chrome.runtime.onInstalled.addListener(async () => {
   for (const k of Object.keys(DEFAULTS)) {
     if (existing[k] !== undefined) merged[k] = existing[k];
   }
-  // Always clear stuck state on install/update
   merged.dmJob = { phase: 'idle' };
   merged.blockedUntil = null;
   await chrome.storage.local.set(merged);
@@ -27,7 +26,8 @@ chrome.runtime.onStartup.addListener(setupAlarm);
 
 async function setupAlarm() {
   await chrome.alarms.clear(ALARM_NAME);
-  chrome.alarms.create(ALARM_NAME, { delayInMinutes: INTERVAL, periodInMinutes: INTERVAL });
+  // First fire after 6 seconds, then every 3 minutes
+  chrome.alarms.create(ALARM_NAME, { delayInMinutes: 0.1, periodInMinutes: INTERVAL });
 }
 
 async function findIGTab() {
@@ -59,27 +59,37 @@ async function sendToContent(msg) {
 
 async function dispatch() {
   const now = Date.now();
-  await chrome.storage.local.set({ lastAlarmAt: now });
+  const p = [{ stage: 'alarm', status: 'ok', detail: 'auto check fired', ts: now }];
+  await chrome.storage.local.set({ lastAlarmAt: now, lastCheckResult: p });
 
   const data = await chrome.storage.local.get(null);
-  if (!data.enabled) return;
-  if (data.blockedUntil && Date.now() < data.blockedUntil) return;
+
+  if (!data.enabled) { p.push({ stage: 'skip', status: 'skip', detail: 'toggle is OFF', ts: Date.now() }); await chrome.storage.local.set({ lastCheckResult: p }); return; }
+  if (!data.messages?.length) { p.push({ stage: 'skip', status: 'skip', detail: 'no messages set', ts: Date.now() }); await chrome.storage.local.set({ lastCheckResult: p }); return; }
+  if (data.blockedUntil && Date.now() < data.blockedUntil) { p.push({ stage: 'skip', status: 'skip', detail: 'paused by instagram', ts: Date.now() }); await chrome.storage.local.set({ lastCheckResult: p }); return; }
   if (data.blockedUntil) await chrome.storage.local.set({ blockedUntil: null });
 
   const today = new Date().toISOString().slice(0, 10);
   if (data.lastResetDate !== today) await chrome.storage.local.set({ sentToday: 0, lastResetDate: today });
-
   const sent = data.lastResetDate !== today ? 0 : (data.sentToday || 0);
-  if (sent >= Math.min(data.dailyCap || 15, 30)) return;
-  if (!data.messages?.length) return;
+  if (sent >= Math.min(data.dailyCap || 15, 30)) { p.push({ stage: 'skip', status: 'skip', detail: `daily limit hit (${sent})`, ts: Date.now() }); await chrome.storage.local.set({ lastCheckResult: p }); return; }
 
-  // Clear stale jobs
-  if (data.dmJob?.phase && data.dmJob.phase !== 'idle' && Date.now() - (data.dmJob.started || 0) > 10 * 60 * 1000) {
-    await chrome.storage.local.set({ dmJob: { phase: 'idle' } });
+  if (data.dmJob?.phase && data.dmJob.phase !== 'idle') {
+    if (Date.now() - (data.dmJob.started || 0) > 10 * 60 * 1000) {
+      await chrome.storage.local.set({ dmJob: { phase: 'idle' } });
+      p.push({ stage: 'fix', status: 'ok', detail: 'cleared stale job', ts: Date.now() });
+    } else {
+      p.push({ stage: 'skip', status: 'skip', detail: 'send already in progress', ts: Date.now() }); await chrome.storage.local.set({ lastCheckResult: p }); return;
+    }
   }
-  if (data.dmJob?.phase && data.dmJob.phase !== 'idle') return;
 
-  await sendToContent({ type: 'RUN_CHECK' });
+  p.push({ stage: 'dispatch', status: 'ok', detail: 'sending RUN_CHECK to instagram tab', ts: Date.now() });
+  await chrome.storage.local.set({ lastCheckResult: p });
+
+  const result = await sendToContent({ type: 'RUN_CHECK' });
+
+  p.push({ stage: 'result', status: result.ok ? 'ok' : 'fail', detail: result.ok ? 'content script responded' : (result.error || 'no response'), ts: Date.now() });
+  await chrome.storage.local.set({ lastCheckResult: p });
 }
 
 chrome.alarms.onAlarm.addListener(async (a) => {
@@ -106,9 +116,9 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
         await chrome.storage.local.set({ sentToday: 0 });
         return { ok: true };
       default:
-        return { ok: false, error: 'unknown message type' };
+        return { ok: false, error: 'unknown' };
     }
   };
   handle().then(respond).catch(() => respond({ ok: false }));
-  return true; // keep channel open for async response
+  return true;
 });
