@@ -1,5 +1,5 @@
 const ALARM_NAME = 'heyback-check';
-const INTERVAL = 20;
+const INTERVAL = 3;
 const DEFAULTS = { enabled: false, messages: [], dailyCap: 15, seenFollowers: [], sentLog: [], sentToday: 0, sentTotalCount: 0, lastResetDate: new Date().toISOString().slice(0,10), blockedUntil: null, hasCompletedFirstRun: false, onboardingDone: false, safetyAcknowledged: false, lastAlarmAt: null, lastCheckResult: [], dmJob: null, lastVerifyResult: null, autoDiagnoseResult: null, pendingDiagnose: false, simulateTarget: null };
 
 chrome.runtime.onInstalled.addListener(async () => {
