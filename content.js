@@ -16,16 +16,39 @@
   let lastMsgIdx = -1;
 
   chrome.runtime.onMessage.addListener((msg, _s, respond) => {
-    if (msg.type === 'RUN_CHECK') { if (isRunning) respond({ ok: false }); else { runCheck(); respond({ ok: true }); } }
-    else if (msg.type === 'TEST_SEND') { testSend(msg.username, msg.message); respond({ ok: true }); }
-    else if (msg.type === 'VERIFY_LAST_SEND') { doVerify().then(r => chrome.storage.local.set({ lastVerifyResult: r })); respond({ ok: true }); }
-    else if (msg.type === 'FORCE_RESET_JOB') { chrome.storage.local.set({ dmJob: { phase: 'idle' } }).then(() => respond({ ok: true })); return true; }
-    else if (msg.type === 'RESET_TODAY') { chrome.storage.local.set({ sentToday: 0 }).then(() => respond({ ok: true })); return true; }
-    else if (msg.type === 'RESET_ALL') { chrome.storage.local.clear().then(() => respond({ ok: true })); return true; }
-    else if (msg.type === 'AUTO_DIAGNOSE') { runDiagnose(); respond({ ok: true }); }
-    else if (msg.type === 'SIMULATE_AUTO_FLOW') { simulateAutoFlow(); respond({ ok: true }); }
-    else if (msg.type === 'MANUAL_TEST_TYPING') { runDiagnose(); respond({ ok: true }); }
-    else if (msg.type === 'MANUAL_RUN_CHECK') { if (!isRunning) runCheck(); respond({ ok: true }); }
+    const handle = async () => {
+      switch (msg.type) {
+        case 'RUN_CHECK':
+        case 'MANUAL_RUN_CHECK':
+          if (!isRunning) runCheck();
+          return { ok: true };
+        case 'TEST_SEND':
+          testSend(msg.username, msg.message);
+          return { ok: true };
+        case 'VERIFY_LAST_SEND':
+          doVerify().then(r => chrome.storage.local.set({ lastVerifyResult: r }));
+          return { ok: true };
+        case 'FORCE_RESET_JOB':
+          await chrome.storage.local.set({ dmJob: { phase: 'idle' } });
+          return { ok: true };
+        case 'RESET_TODAY':
+          await chrome.storage.local.set({ sentToday: 0 });
+          return { ok: true };
+        case 'RESET_ALL':
+          await chrome.storage.local.clear();
+          return { ok: true };
+        case 'AUTO_DIAGNOSE':
+        case 'MANUAL_TEST_TYPING':
+          runDiagnose();
+          return { ok: true };
+        case 'SIMULATE_AUTO_FLOW':
+          simulateAutoFlow();
+          return { ok: true };
+        default:
+          return { ok: true };
+      }
+    };
+    handle().then(respond).catch(() => respond({ ok: false }));
     return true;
   });
 
