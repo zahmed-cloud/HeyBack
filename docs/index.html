@@ -99,11 +99,11 @@ nav .dl:hover{background:var(--accent2)}
 .rv-note{font-size:10px;color:var(--mute);opacity:.4;margin-top:16px}
 
 /* INSTALL */
-.install-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:680px;margin:0 auto}
-.install-step{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;display:flex;gap:16px;align-items:flex-start}
-.install-num{background:var(--accent);color:#fff;min-width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0}
-.install-step b{font-size:14px;font-weight:700;display:block;margin-bottom:2px}
-.install-step span{font-size:12px;color:var(--mute);line-height:1.4}
+.install-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.install-step{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px 24px}
+.install-num{background:var(--accent);color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;margin-bottom:14px}
+.install-step b{font-size:14px;font-weight:700;display:block;margin-bottom:4px}
+.install-step span{font-size:12px;color:var(--mute);line-height:1.5}
 
 /* FAQ */
 .faq{display:flex;flex-direction:column;gap:6px;max-width:680px}
@@ -147,7 +147,7 @@ footer{padding:32px 0;border-top:1px solid var(--border)}
   section{padding:72px 0}
   .footer-inner{flex-direction:column;gap:16px;text-align:center}
   .how{grid-template-columns:1fr 1fr}
-  .install-grid{grid-template-columns:1fr}
+  .install-grid{grid-template-columns:1fr 1fr}
   .coffee-card{flex-direction:column;text-align:center;padding:32px 24px}
   .coffee-btn{width:100%;justify-content:center}
 }
@@ -344,7 +344,7 @@ footer{padding:32px 0;border-top:1px solid var(--border)}
     <div class="rv"><div class="qt">"standing desk. cold plunge. 5am club. gratitude journal. lion's mane smoothie. $400/month mindset coach. HeyBack is the only thing that actually did something for my brand this entire year. and it's free. i'm upset."</div><div class="who"><b>YC W26 founder</b> &bull; pivoted 4 times, still going</div></div>
     <div class="rv"><div class="qt">"installed this on my girlfriend's phone as a prank. she now has more DM conversations than me. we're in couples therapy. the bot is doing better than both of us combined. 10/10 would ruin relationship again."</div><div class="who"><b>@down_bad_dev</b> &bull; single now, thanks ahmed</div></div>
     <div class="rv"><div class="qt">"i sell candles on instagram. was getting 20 new followers a day and replying to exactly 0 of them cause who has time. installed HeyBack, now every new follower gets a 'hey thanks for following, use code WELCOME for 15% off' and my sales went up 30%. this is illegal levels of free value."</div><div class="who"><b>candle girl</b> &bull; smells good, sells better</div></div>
-    <div class="rv"><div class="qt">"my intern used to handle DMs. he DM'd my ex, my competitor, and my mom's yoga instructor. replaced him with HeyBack. zero drama. zero HR meetings. infinite improvement."</div><div class="who"><b>ahmed</b> &bull; yes, the guy who built this</div></div>
+    <div class="rv"><div class="qt">"hired an intern to handle DMs. first week he DM'd my ex and my biggest competitor. replaced him with HeyBack. zero drama. zero awkward conversations. infinite improvement."</div><div class="who"><b>ahmed</b> &bull; yes the guy who built this</div></div>
   </div>
   <p class="rv-note">* none of these are real. every single one is made up. but they could be real. and that's what matters.</p>
 </section>
@@ -353,18 +353,18 @@ footer{padding:32px 0;border-top:1px solid var(--border)}
 <section id="install">
   <div class="sh">
     <div class="ey">install</div>
-    <h2>takes about 2 minutes</h2>
-  </div>
-  <div style="text-align:center;margin-bottom:32px">
-    <a href="downloads/heyback-v1.zip" class="btn-p">download the zip</a>
+    <h2>ready in 2 minutes</h2>
   </div>
   <div class="install-grid">
-    <div class="install-step"><div class="install-num">1</div><div><b>unzip the file</b><br><span>anywhere on your computer, doesn't matter where</span></div></div>
-    <div class="install-step"><div class="install-num">2</div><div><b>open chrome://extensions</b><br><span>paste that into your address bar and hit enter</span></div></div>
-    <div class="install-step"><div class="install-num">3</div><div><b>turn on developer mode</b><br><span>it's the toggle in the top right corner</span></div></div>
-    <div class="install-step"><div class="install-num">4</div><div><b>click "load unpacked"</b><br><span>select the folder you just unzipped</span></div></div>
-    <div class="install-step"><div class="install-num">5</div><div><b>open HeyBack from your toolbar</b><br><span>add your messages, set a daily limit, flip it on</span></div></div>
-    <div class="install-step"><div class="install-num">6</div><div><b>keep instagram open in a tab</b><br><span>that's it. HeyBack handles everything from here.</span></div></div>
+    <div class="install-step"><div class="install-num">1</div><b>download and unzip</b><span>grab the zip, unzip it anywhere on your computer</span></div>
+    <div class="install-step"><div class="install-num">2</div><b>open chrome://extensions</b><span>paste that into your browser address bar, hit enter</span></div>
+    <div class="install-step"><div class="install-num">3</div><b>turn on developer mode</b><span>flip the toggle in the top right corner of that page</span></div>
+    <div class="install-step"><div class="install-num">4</div><b>load the extension</b><span>click "load unpacked" and select the folder you unzipped</span></div>
+    <div class="install-step"><div class="install-num">5</div><b>set up your messages</b><span>open HeyBack from your toolbar, type your messages, set a limit</span></div>
+    <div class="install-step"><div class="install-num">6</div><b>flip it on</b><span>toggle on, keep instagram open in a tab, you're done</span></div>
+  </div>
+  <div style="text-align:center;margin-top:36px">
+    <a href="downloads/heyback-v1.zip" class="btn-p" style="padding:18px 48px;font-size:17px">download HeyBack free</a>
   </div>
 </section>
 
@@ -389,9 +389,9 @@ footer{padding:32px 0;border-top:1px solid var(--border)}
 <!-- CTA -->
 <div class="w">
 <section class="cta">
-  <h2>stop leaving new followers on read<span class="a">.</span></h2>
-  <p>every new follower is a chance to start a conversation. let HeyBack handle the hello.</p>
-  <a href="downloads/heyback-v1.zip" class="btn-p">download HeyBack for free</a>
+  <h2>new follower just hit follow<span class="a">.</span><br>now what<span class="a">?</span></h2>
+  <p>let HeyBack say hi while you do literally anything else.</p>
+  <a href="downloads/heyback-v1.zip" class="btn-p" style="padding:18px 48px;font-size:17px">download free</a>
 </section>
 </div>
 
